@@ -1,0 +1,354 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "LexiAudit AI - Contract Risk Audit API",
+    "description": "Submit the plain text of a contract or NDA and receive an AI-generated risk audit: a 0-100 risk score, a risk level, an executive summary, and a list of flagged clauses, each with the issue found and a suggested redline. The analysis covers liability and indemnity risks, non-compete and non-solicit scope, IP assignment, confidentiality terms, termination, and governing law or arbitration terms. Input is plain text only (50 to 60,000 characters); file upload and PDF parsing are not performed by this API. Results are AI-generated for informational purposes and are not legal advice.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Atyq Capital & AI Labs"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://YOUR-PROJECT.vercel.app",
+      "description": "Production (replace with your Vercel URL)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Audit",
+      "description": "Contract risk analysis"
+    },
+    {
+      "name": "Status",
+      "description": "Service health"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Service health check",
+        "description": "Returns the service status. Does not call the analysis engine.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service is running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                },
+                "example": {
+                  "status": "ok",
+                  "service": "LexiAudit AI API",
+                  "version": "1.0.0",
+                  "uptime_seconds": 3600
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit": {
+      "post": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "Audit a contract for legal risk",
+        "description": "Analyzes the contract text and returns a risk score, risk level, executive summary and flagged clauses with suggested redlines. Typical processing time is 5 to 40 seconds depending on length.",
+        "operationId": "auditContract",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuditRequest"
+              },
+              "example": {
+                "text": "MUTUAL NON-DISCLOSURE AGREEMENT. 1. Confidential Information means any information disclosed by either party, whether or not marked confidential. 2. Obligations of confidentiality survive in perpetuity. 3. For five (5) years after termination, Recipient shall not engage in any business that competes with Disclosing Party anywhere in the world. 4. Recipient shall indemnify Disclosing Party for any and all losses arising out of this Agreement, regardless of fault. 5. Disclosing Party's liability is limited to $100; Recipient's liability is unlimited.",
+                "jurisdiction": "State of California, USA"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Audit completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditResponse"
+                },
+                "example": {
+                  "risk_score": 88,
+                  "risk_level": "High Risk",
+                  "summary": "This NDA is heavily one-sided. It imposes a worldwide five-year non-compete, perpetual confidentiality, fault-agnostic indemnification and asymmetric liability caps, all against the Recipient. Significant renegotiation is recommended before signing.",
+                  "clauses": [
+                    {
+                      "title": "Asymmetric Limitation of Liability",
+                      "risk": "High",
+                      "issue": "Disclosing Party's liability is capped at $100 while Recipient's liability is unlimited, creating severe imbalance.",
+                      "redline": "Each party's total aggregate liability under this Agreement shall not exceed the greater of (a) USD 100,000 or (b) the fees paid or payable in the twelve (12) months preceding the claim."
+                    },
+                    {
+                      "title": "Overbroad Non-Compete",
+                      "risk": "High",
+                      "issue": "A five-year worldwide non-compete is excessive for an NDA and may be unenforceable in some jurisdictions.",
+                      "redline": "Delete this clause. Alternatively: For twelve (12) months following termination, Recipient shall not use Confidential Information to directly solicit Disclosing Party's customers identified in writing."
+                    }
+                  ],
+                  "meta": {
+                    "model": "gpt-4o-mini",
+                    "characters_analyzed": 612,
+                    "processing_ms": 8431
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (missing or too-short text, or invalid JSON)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "text_too_short",
+                    "message": "The \"text\" field must contain at least 50 characters."
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request did not come through the API gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "Requests must come through the API gateway."
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Text exceeds 60,000 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "text_too_long",
+                    "message": "The \"text\" field must not exceed 60000 characters."
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "rate_limited",
+                    "message": "Too many requests. Please slow down."
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Analysis engine unavailable or returned an invalid response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "upstream_error",
+                    "message": "The analysis engine is temporarily unavailable. Please try again."
+                  }
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Analysis timed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "timeout",
+                    "message": "The analysis timed out. Please try again."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuditRequest": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 50,
+            "maxLength": 60000,
+            "description": "Plain text of the contract or NDA to analyze."
+          },
+          "jurisdiction": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Optional jurisdiction hint (for example a state or country) used as context for the analysis.",
+            "example": "State of California, USA"
+          }
+        }
+      },
+      "Clause": {
+        "type": "object",
+        "required": [
+          "title",
+          "risk",
+          "issue",
+          "redline"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Short clause title."
+          },
+          "risk": {
+            "type": "string",
+            "enum": [
+              "High",
+              "Medium",
+              "Low"
+            ]
+          },
+          "issue": {
+            "type": "string",
+            "description": "Why the clause is risky."
+          },
+          "redline": {
+            "type": "string",
+            "description": "Suggested replacement or edited clause language."
+          }
+        }
+      },
+      "AuditResponse": {
+        "type": "object",
+        "required": [
+          "risk_score",
+          "risk_level",
+          "summary",
+          "clauses",
+          "meta"
+        ],
+        "properties": {
+          "risk_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Overall risk, higher is riskier."
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "High Risk",
+              "Moderate Risk",
+              "Low Risk"
+            ],
+            "description": "High: 67-100, Moderate: 34-66, Low: 0-33."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Executive summary."
+          },
+          "clauses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Clause"
+            },
+            "description": "Flagged clauses, ordered from highest to lowest risk."
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "string"
+              },
+              "characters_analyzed": {
+                "type": "integer"
+              },
+              "processing_ms": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "service": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "uptime_seconds": {
+            "type": "integer"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

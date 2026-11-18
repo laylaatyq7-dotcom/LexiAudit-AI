@@ -178,6 +178,7 @@ class UpstreamError(Exception):
 
 # ---------- Endpoints ----------
 @app.get("/health")
+@app.head("/health")
 async def health():
     return {
         "status": "ok",
